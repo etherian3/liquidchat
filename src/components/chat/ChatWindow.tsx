@@ -37,6 +37,9 @@ const ChatWindow = ({ conversationId, currentUser }: ChatWindowProps) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const channelRef = useRef<any>(null);
+  const [hasMore, setHasMore] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [hasInitialScrolled, setHasInitialScrolled] = useState(false);
 
   useEffect(() => {
     // Clean up existing subscription first
@@ -68,114 +71,100 @@ const ChatWindow = ({ conversationId, currentUser }: ChatWindowProps) => {
   }, [conversationId, currentUser]);
 
   useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
+    setHasInitialScrolled(false);
+  }, [conversationId]);
+
+  useEffect(() => {
+    if (!hasInitialScrolled && messages.length > 0) {
+      setTimeout(() => {
+        scrollToBottom();
+        setHasInitialScrolled(true);
+      }, 300);
+    }
+    // eslint-disable-next-line
+  }, [messages, hasInitialScrolled]);
+
+  // Scroll ke bawah setiap kali pesan baru dikirim oleh user sendiri
+  const prevMessagesRef = useRef<Message[]>([]);
+  useEffect(() => {
+    if (messages.length > 0 && prevMessagesRef.current.length > 0) {
+      const prevLast = prevMessagesRef.current[prevMessagesRef.current.length - 1];
+      const currLast = messages[messages.length - 1];
+      // Jika pesan terakhir berubah dan pengirimnya adalah user sendiri, scroll ke bawah
+      if (currLast && prevLast && currLast.id !== prevLast.id && currLast.sender_id === currentUser?.id) {
+        setTimeout(() => scrollToBottom(), 100);
+      }
+    }
+    prevMessagesRef.current = messages;
+  }, [messages, currentUser]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
-  const fetchMessages = async () => {
-    if (!conversationId || !currentUser) {
-      console.log(
-        "Cannot fetch messages - missing conversationId or currentUser"
-      );
-      return;
-    }
-
+  const fetchMessages = async (beforeId: string | null = null, append = false) => {
+    if (!conversationId || !currentUser) return;
     try {
-      console.log("Fetching messages for conversation:", conversationId);
-      setLoading(true);
-
-      // Fetch messages directly - RLS policies will handle access control
-      const { data: messagesData, error: messagesError } = await supabase
+      setLoading(!append); // loading utama hanya saat pertama buka
+      setIsLoadingMore(append);
+      let query = supabase
         .from("messages")
         .select("id, content, image_url, created_at, sender_id")
         .eq("conversation_id", conversationId)
         .eq("is_deleted", false)
-        .order("created_at", { ascending: true });
-
-      if (messagesError) {
-        console.error("Error fetching messages:", messagesError);
-        if (messagesError.message.includes("row-level security")) {
-          toast({
-            title: "Access Denied",
-            description: "You don't have access to this conversation",
-            variant: "destructive",
-          });
-        } else {
-          toast({
-            title: "Error",
-            description: "Failed to load messages. Please try again.",
-            variant: "destructive",
-          });
-        }
-        return;
+        .order("created_at", { ascending: false })
+        .limit(50);
+      if (beforeId && messages.length > 0) {
+        // Ambil pesan yang lebih lama dari pesan pertama yang ada
+        const oldestMsg = messages[0];
+        query = query.lt("created_at", oldestMsg.created_at);
       }
-
-      console.log("Fetched messages:", messagesData);
-
+      const { data: messagesData, error: messagesError } = await query;
+      if (messagesError) return;
       // Get unique sender IDs
-      const senderIds = [
-        ...new Set(messagesData?.map((msg) => msg.sender_id) || []),
-      ];
-
+      const senderIds = [...new Set(messagesData?.map((msg) => msg.sender_id) || [])];
+      let profilesMap = new Map();
       if (senderIds.length > 0) {
-        // Fetch profiles for all senders
-        const { data: profilesData, error: profilesError } = await supabase
+        const { data: profilesData } = await supabase
           .from("profiles")
           .select("id, username, display_name, avatar_url")
           .in("id", senderIds);
-
-        if (profilesError) {
-          console.error("Error fetching profiles:", profilesError);
-        }
-
-        // Create a map of profiles by user ID
-        const profilesMap = new Map();
         profilesData?.forEach((profile) => {
           profilesMap.set(profile.id, profile);
         });
-
-        // Transform messages to match expected format
-        const transformedMessages: Message[] = (messagesData || []).map(
-          (msg) => {
-            const profile = profilesMap.get(msg.sender_id);
-            return {
-              id: msg.id,
-              content: msg.content,
-              image_url: msg.image_url,
-              created_at: msg.created_at,
-              sender_id: msg.sender_id,
-              sender_profile: profile
-                ? {
-                    username: profile.username,
-                    display_name: profile.display_name || profile.username,
-                    avatar_url: profile.avatar_url,
-                  }
-                : {
-                    username: "Unknown User",
-                    display_name: "Unknown User",
-                    avatar_url: null,
-                  },
-            };
-          }
-        );
-
-        console.log("Transformed messages:", transformedMessages);
-        setMessages(transformedMessages);
-      } else {
-        setMessages([]);
       }
-    } catch (error: any) {
-      console.error("Unexpected error fetching messages:", error);
-      toast({
-        title: "Error",
-        description: "An unexpected error occurred while loading messages",
-        variant: "destructive",
-      });
+      const transformedMessages: Message[] = (messagesData || [])
+        .reverse()
+        .map((msg) => {
+          const profile = profilesMap.get(msg.sender_id);
+          return {
+            id: msg.id,
+            content: msg.content,
+            image_url: msg.image_url,
+            created_at: msg.created_at,
+            sender_id: msg.sender_id,
+            sender_profile: profile
+              ? {
+                  username: profile.username,
+                  display_name: profile.display_name || profile.username,
+                  avatar_url: profile.avatar_url,
+                }
+              : {
+                  username: "Unknown User",
+                  display_name: "Unknown User",
+                  avatar_url: null,
+                },
+          };
+        });
+      if (append) {
+        setMessages((prev) => [...transformedMessages, ...prev]);
+      } else {
+        setMessages(transformedMessages);
+      }
+      setHasMore((messagesData || []).length === 50);
     } finally {
       setLoading(false);
+      setIsLoadingMore(false);
     }
   };
 
@@ -407,7 +396,14 @@ const ChatWindow = ({ conversationId, currentUser }: ChatWindowProps) => {
     <>
       <Card className="glass-effect p-0 sm:p-0 flex flex-col flex-1 h-full max-h-full">
         {/* Area pesan */}
-        <div className="flex-1 overflow-y-auto space-y-4 pr-2 min-h-0 py-2 px-2 sm:px-4 pb-24">
+        <div className="flex-1 overflow-y-auto space-y-4 pr-2 min-h-0 py-2 px-2 sm:px-4 pb-11">
+          {hasMore && (
+            <div className="flex justify-center mb-2">
+              <Button size="sm" variant="outline" onClick={() => fetchMessages(messages[0]?.id, true)} disabled={isLoadingMore}>
+                {isLoadingMore ? 'Loading...' : 'Load More'}
+              </Button>
+            </div>
+          )}
           {loading ? (
             <div className="h-full flex items-center justify-center">
               <div className="text-center space-y-3">
