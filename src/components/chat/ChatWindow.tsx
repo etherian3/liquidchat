@@ -413,8 +413,9 @@ const ChatWindow = ({ conversationId, currentUser }: ChatWindowProps) => {
 
   return (
     <>
-      <Card className="glass-effect p-4 sm:p-6 h-[500px] sm:h-[600px] flex flex-col">
-        <div className="flex-1 overflow-y-auto space-y-4 mb-4 pr-2">
+      <Card className="glass-effect p-0 sm:p-0 flex flex-col flex-1 h-full max-h-full">
+        {/* Area pesan */}
+        <div className="flex-1 overflow-y-auto space-y-4 pr-2 min-h-0 py-2 px-2 sm:px-4">
           {loading ? (
             <div className="h-full flex items-center justify-center">
               <div className="text-center space-y-3">
@@ -485,7 +486,7 @@ const ChatWindow = ({ conversationId, currentUser }: ChatWindowProps) => {
           <div ref={messagesEndRef} />
         </div>
 
-        <div className="space-y-3">
+        <div className="space-y-3 sticky bottom-0 bg-transparent z-10 mb-3 px-2 sm:px-4">
           {selectedImage && (
             <div className="flex items-center space-x-3 p-3 glass-card rounded-lg animate-scale-in">
               <img
