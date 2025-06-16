@@ -320,14 +320,14 @@ const ChatWindow = ({ conversationId, currentUser }: ChatWindowProps) => {
     )
       return;
 
-    setLoading(true);
-
+    let isUploading = false;
     try {
-      console.log("Sending message to conversation:", conversationId);
-
       let imageUrl = null;
       if (selectedImage) {
+        isUploading = true;
+        setLoading(true);
         imageUrl = await uploadImage(selectedImage);
+        setLoading(false);
         if (!imageUrl) {
           toast({
             title: "Error",
@@ -349,18 +349,11 @@ const ChatWindow = ({ conversationId, currentUser }: ChatWindowProps) => {
           | "emoji",
       };
 
-      console.log("Inserting message:", messageData);
-
-      const { error } = await supabase.from("messages").insert(messageData);
-
-      if (error) {
-        console.error("Error inserting message:", error);
-        throw error;
-      }
-
-      console.log("Message sent successfully");
+      await supabase.from("messages").insert(messageData);
       setNewMessage("");
       setSelectedImage(null);
+      // Scroll ke bawah langsung setelah kirim pesan
+      setTimeout(() => scrollToBottom(), 100);
     } catch (error: any) {
       console.error("Error sending message:", error);
       toast({
@@ -369,8 +362,7 @@ const ChatWindow = ({ conversationId, currentUser }: ChatWindowProps) => {
           error.message || "Failed to send message. Please try again.",
         variant: "destructive",
       });
-    } finally {
-      setLoading(false);
+      if (isUploading) setLoading(false);
     }
   };
 

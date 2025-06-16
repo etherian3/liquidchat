@@ -190,7 +190,7 @@ const ChatApp = () => {
         {/* Main Content */}
         <div className="relative flex-1 flex flex-col h-full pt-[72px]">
           {/* Mobile Layout - Show either sidebar or chat */}
-          <div className="lg:hidden h-full flex flex-col flex-1">
+          <div className="lg:hidden h-full flex flex-col flex-1 overflow-hidden">
             {!showMobileChat ? (
               <ChatSidebar
                 conversations={conversations}
