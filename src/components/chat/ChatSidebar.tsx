@@ -42,7 +42,7 @@ const ChatSidebar = ({
   };
 
   return (
-    <Card className="glass-effect p-3 sm:p-4 h-full flex-1 min-h-0 flex flex-col max-h-[calc(100vh-120px)] md:max-h-[600px]">
+    <Card className="glass-effect p-3 sm:p-4 h-full flex-1 min-h-0 flex flex-col">
       <Tabs defaultValue="chats" className="flex-1 flex flex-col">
         <TabsList className="glass-card w-full grid grid-cols-3 h-9 sm:h-10 text-xs sm:text-sm mb-3">
           <TabsTrigger value="chats" className="px-2 sm:px-3">
