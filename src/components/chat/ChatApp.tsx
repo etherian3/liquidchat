@@ -141,7 +141,7 @@ const ChatApp = () => {
 
       <div className="w-full h-full flex flex-col flex-1 relative z-10">
         {/* Header sticky/fixed dengan logo dan style asli */}
-        <div className="sticky top-0 z-30 w-full bg-white/80 backdrop-blur-md shadow-md rounded-t-xl px-4 py-3 flex items-center justify-between">
+        <div className="fixed top-0 left-0 w-full z-30 bg-white/80 backdrop-blur-md shadow-md rounded-t-xl px-4 py-3 flex items-center justify-between">
           <div className="flex items-center space-x-3 sm:space-x-4">
             {/* Back button for mobile when in chat view */}
             {showMobileChat && (
@@ -188,7 +188,7 @@ const ChatApp = () => {
         </div>
 
         {/* Main Content */}
-        <div className="relative flex-1 flex flex-col h-full">
+        <div className="relative flex-1 flex flex-col h-full pt-[72px]">
           {/* Mobile Layout - Show either sidebar or chat */}
           <div className="lg:hidden h-full flex flex-col flex-1">
             {!showMobileChat ? (
